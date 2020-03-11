@@ -102,8 +102,8 @@ Follow the [React Native Getting Started Guide](https://facebook.github.io/react
 | Custom Fields on Signup                                       	| ✅    	|
 | Report message                                                	| ✅    	|
 | Theming                                                       	| ✅    	|
-| Settings -> Review the App                                    	| ❌    	|
-| Settings -> Default Browser                                   	| ❌    	|
+| Settings -> Review the App                                    	| ✅    	|
+| Settings -> Default Browser                                   	| ✅    	|
 | Admin panel                                                   	| ✅    	|
 | Reply message from notification                               	| ✅    	|
 | Unread counter banner on message list                         	| ✅    	|
