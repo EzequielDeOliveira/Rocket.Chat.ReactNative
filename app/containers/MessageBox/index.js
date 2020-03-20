@@ -96,6 +96,11 @@ class MessageBox extends Component {
 		navigation: PropTypes.object
 	}
 
+	selection = {
+		start: 0,
+		end: 0
+	};
+
 	constructor(props) {
 		super(props);
 		this.state = {
@@ -109,7 +114,8 @@ class MessageBox extends Component {
 			},
 			commandPreview: [],
 			showCommandPreview: false,
-			command: {}
+			command: {},
+			selection: undefined
 		};
 		this.text = '';
 		this.focused = false;
@@ -206,7 +212,7 @@ class MessageBox extends Component {
 
 	shouldComponentUpdate(nextProps, nextState) {
 		const {
-			showEmojiKeyboard, showSend, recording, mentions, file, commandPreview
+			showEmojiKeyboard, showSend, recording, mentions, file, commandPreview, selection
 		} = this.state;
 
 		const {
@@ -245,6 +251,10 @@ class MessageBox extends Component {
 		if (!equal(nextState.file, file)) {
 			return true;
 		}
+		if (!equal(selection, nextState.selection)) {
+			return true;
+		}
+
 		return false;
 	}
 
@@ -383,7 +393,13 @@ class MessageBox extends Component {
 		if (this.component && this.component._lastNativeSelection) {
 			const { start, end } = this.component._lastNativeSelection;
 			const cursor = Math.max(start, end);
-			newText = `${ text.substr(0, cursor) }${ emoji }${ text.substr(cursor) }`;
+			newText = `${ text.slice(0, cursor) }${ emoji }${ text.slice(cursor) }`;
+			this.setState({
+				selection: {
+					start: start + emoji.length,
+					end: end + emoji.length
+				}
+			});
 		} else {
 			// if messagebox doesn't have a cursor, just append selected emoji
 			newText = `${ text }${ emoji }`;
@@ -391,6 +407,21 @@ class MessageBox extends Component {
 		this.setInput(newText);
 		this.setShowSend(true);
 	}
+
+	onSelectionChange = (event) => {
+		const { selection } = event.nativeEvent;
+		this.selection = selection;
+		this.setState(
+			{
+				selection
+			},
+			() => {
+				this.setState({
+					selection: undefined
+				});
+			}
+		);
+	};
 
 	getPermalink = async(message) => {
 		try {
@@ -789,7 +820,7 @@ class MessageBox extends Component {
 
 	renderContent = () => {
 		const {
-			recording, showEmojiKeyboard, showSend, mentions, trackingType, commandPreview, showCommandPreview
+			recording, showEmojiKeyboard, showSend, mentions, trackingType, commandPreview, showCommandPreview, selection
 		} = this.state;
 		const {
 			editing, message, replying, replyCancel, user, getCustomEmoji, theme, Message_AudioRecorderEnabled
@@ -846,6 +877,8 @@ class MessageBox extends Component {
 							multiline
 							testID='messagebox-input'
 							theme={theme}
+							onSelectionChange={this.onSelectionChange}
+							selection={selection}
 							{...isAndroidTablet}
 						/>
 						<RightButtons
