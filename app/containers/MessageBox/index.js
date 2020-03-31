@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { View, Alert, Keyboard } from 'react-native';
+import {
+	View, Alert, Keyboard, Dimensions
+} from 'react-native';
 import { connect } from 'react-redux';
 import { KeyboardAccessoryView } from 'react-native-keyboard-input';
 import ImagePicker from 'react-native-image-crop-picker';
@@ -8,7 +10,9 @@ import equal from 'deep-equal';
 import DocumentPicker from 'react-native-document-picker';
 import ActionSheet from 'react-native-action-sheet';
 import { Q } from '@nozbe/watermelondb';
+import Icon from 'react-native-vector-icons/FontAwesome';
 
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { generateTriggerId } from '../../lib/methods/actions';
 import TextInput from '../../presentation/TextInput';
 import { userTyping as userTypingAction } from '../../actions/room';
@@ -60,6 +64,7 @@ const videoPickerConfig = {
 	mediaType: 'video'
 };
 
+const { height } = Dimensions.get('window');
 const FILE_CANCEL_INDEX = 0;
 const FILE_PHOTO_INDEX = 1;
 const FILE_VIDEO_INDEX = 2;
@@ -93,7 +98,8 @@ class MessageBox extends Component {
 		typing: PropTypes.func,
 		theme: PropTypes.string,
 		replyCancel: PropTypes.func,
-		navigation: PropTypes.object
+		navigation: PropTypes.object,
+		roomAnnouncement: PropTypes.string
 	}
 
 	constructor(props) {
@@ -109,7 +115,8 @@ class MessageBox extends Component {
 			},
 			commandPreview: [],
 			showCommandPreview: false,
-			command: {}
+			command: {},
+			fullScreenComposer: false
 		};
 		this.text = '';
 		this.focused = false;
@@ -206,12 +213,13 @@ class MessageBox extends Component {
 
 	shouldComponentUpdate(nextProps, nextState) {
 		const {
-			showEmojiKeyboard, showSend, recording, mentions, file, commandPreview
+			showEmojiKeyboard, showSend, recording, mentions, file, commandPreview, fullScreenComposer
 		} = this.state;
 
 		const {
-			roomType, replying, editing, isFocused, theme
+			roomType, replying, editing, isFocused, theme, roomAnnouncement
 		} = this.props;
+
 		if (nextProps.theme !== theme) {
 			return true;
 		}
@@ -243,6 +251,12 @@ class MessageBox extends Component {
 			return true;
 		}
 		if (!equal(nextState.file, file)) {
+			return true;
+		}
+		if (nextState.roomAnnouncement !== roomAnnouncement) {
+			return true;
+		}
+		if (nextState.fullScreenComposer !== fullScreenComposer) {
 			return true;
 		}
 		return false;
@@ -474,7 +488,7 @@ class MessageBox extends Component {
 
 	setCommandPreview = async(command, name, params) => {
 		const { rid } = this.props;
-		try	{
+		try {
 			const { preview } = await RocketChat.getCommandPreview(name, rid, params);
 			this.setState({ commandPreview: preview.items, showCommandPreview: true, command });
 		} catch (e) {
@@ -665,7 +679,7 @@ class MessageBox extends Component {
 			onSubmit, rid: roomId, tmid
 		} = this.props;
 		const message = this.text;
-
+		this.setState({ fullScreenComposer: false });
 		this.clearInput();
 		this.debouncedOnChangeText.stop();
 		this.closeEmoji();
@@ -707,7 +721,7 @@ class MessageBox extends Component {
 			const { id, subscription: { id: rid } } = editingMessage;
 			editRequest({ id, msg: message, rid });
 
-		// Reply
+			// Reply
 		} else if (replying) {
 			const {
 				message: replyingMessage, threadsEnabled, replyWithMention
@@ -717,7 +731,7 @@ class MessageBox extends Component {
 			if (threadsEnabled && replyWithMention) {
 				onSubmit(message, replyingMessage.id);
 
-			// Legacy reply or quote (quote is a reply without mention)
+				// Legacy reply or quote (quote is a reply without mention)
 			} else {
 				const { user, roomType } = this.props;
 				const permalink = await this.getPermalink(replyingMessage);
@@ -733,7 +747,7 @@ class MessageBox extends Component {
 			}
 			replyCancel();
 
-		// Normal message
+			// Normal message
 		} else {
 			onSubmit(message);
 		}
@@ -787,12 +801,58 @@ class MessageBox extends Component {
 		}
 	}
 
+	renderLeftButton = (theme, showEmojiKeyboard, editing, showFileActions, editCancel, openEmoji, closeEmoji) => (
+		<LeftButtons
+			theme={theme}
+			showEmojiKeyboard={showEmojiKeyboard}
+			editing={editing}
+			showFileActions={showFileActions}
+			editCancel={editCancel}
+			openEmoji={openEmoji}
+			closeEmoji={closeEmoji}
+		/>
+	)
+
+	renderMessageInput = (theme, isAndroidTablet) => {
+		const { fullScreenComposer } = this.state;
+		const { text } = this;
+		return (
+			<TextInput
+				ref={component => this.component = component}
+				style={fullScreenComposer ? styles.fullScreenTextBoxInput : styles.textBoxInput}
+				returnKeyType='default'
+				keyboardType='twitter'
+				blurOnSubmit={false}
+				placeholder={I18n.t('New_Message')}
+				onChangeText={this.onChangeText}
+				underlineColorAndroid='transparent'
+				defaultValue={text || ''}
+				multiline
+				testID='messagebox-input'
+				theme={theme}
+				{...isAndroidTablet}
+			/>
+		);
+	}
+
+	renderRightButton = (theme, showSend, submit, recordAudioMessage, Message_AudioRecorderEnabled, showFileActions) => (
+		<RightButtons
+			theme={theme}
+			showSend={showSend}
+			submit={submit}
+			recordAudioMessage={recordAudioMessage}
+			recordAudioMessageEnabled={Message_AudioRecorderEnabled}
+			showFileActions={showFileActions}
+		/>
+	)
+
+
 	renderContent = () => {
 		const {
-			recording, showEmojiKeyboard, showSend, mentions, trackingType, commandPreview, showCommandPreview
+			recording, showEmojiKeyboard, showSend, mentions, trackingType, commandPreview, showCommandPreview, fullScreenComposer
 		} = this.state;
 		const {
-			editing, message, replying, replyCancel, user, getCustomEmoji, theme, Message_AudioRecorderEnabled
+			editing, message, replying, replyCancel, user, getCustomEmoji, theme, Message_AudioRecorderEnabled, roomAnnouncement
 		} = this.props;
 
 		const isAndroidTablet = isTablet && isAndroid ? {
@@ -808,7 +868,7 @@ class MessageBox extends Component {
 			<>
 				<CommandsPreview commandPreview={commandPreview} showCommandPreview={showCommandPreview} />
 				<Mentions mentions={mentions} trackingType={trackingType} theme={theme} />
-				<View style={[styles.composer, { borderTopColor: themes[theme].separatorColor }]}>
+				<View style={[fullScreenComposer ? styles.fullScreenComposer : styles.composer, { borderTopColor: themes[theme].separatorColor }, { bottom: roomAnnouncement && fullScreenComposer ? height * 0.065 : 0 }]}>
 					<ReplyPreview
 						message={message}
 						close={replyCancel}
@@ -817,45 +877,39 @@ class MessageBox extends Component {
 						getCustomEmoji={getCustomEmoji}
 						theme={theme}
 					/>
+					<TouchableOpacity
+						style={[{
+							display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', margin: 0
+						}]}
+						onPress={() => { this.setState({ fullScreenComposer: !fullScreenComposer }); }}
+					>
+						<Icon name={fullScreenComposer ? 'chevron-down' : 'chevron-up'} size={10} />
+					</TouchableOpacity>
 					<View
 						style={[
-							styles.textArea,
+							fullScreenComposer ? styles.fullScreenTextArea : styles.textArea,
 							{ backgroundColor: themes[theme].messageboxBackground }, editing && { backgroundColor: themes[theme].chatComponentBackground }
 						]}
 						testID='messagebox'
 					>
-						<LeftButtons
-							theme={theme}
-							showEmojiKeyboard={showEmojiKeyboard}
-							editing={editing}
-							showFileActions={this.showFileActions}
-							editCancel={this.editCancel}
-							openEmoji={this.openEmoji}
-							closeEmoji={this.closeEmoji}
-						/>
-						<TextInput
-							ref={component => this.component = component}
-							style={styles.textBoxInput}
-							returnKeyType='default'
-							keyboardType='twitter'
-							blurOnSubmit={false}
-							placeholder={I18n.t('New_Message')}
-							onChangeText={this.onChangeText}
-							underlineColorAndroid='transparent'
-							defaultValue=''
-							multiline
-							testID='messagebox-input'
-							theme={theme}
-							{...isAndroidTablet}
-						/>
-						<RightButtons
-							theme={theme}
-							showSend={showSend}
-							submit={this.submit}
-							recordAudioMessage={this.recordAudioMessage}
-							recordAudioMessageEnabled={Message_AudioRecorderEnabled}
-							showFileActions={this.showFileActions}
-						/>
+						{fullScreenComposer ? (
+							<>
+								{this.renderMessageInput(theme, isAndroidTablet)}
+								<View style={styles.fullScreenButtons}>
+									{this.renderLeftButton(theme, showEmojiKeyboard, editing, this.showFileActions, this.editCancel, this.openEmoji, this.closeEmoji)}
+									<View style={styles.fullScreenRightButtons}>
+										{this.renderRightButton(theme, showSend, this.submit, this.recordAudioMessage, Message_AudioRecorderEnabled, this.showFileActions)}
+									</View>
+								</View>
+							</>
+						) : (
+							<>
+								{this.renderLeftButton(theme, showEmojiKeyboard, editing, this.showFileActions, this.editCancel, this.openEmoji, this.closeEmoji)}
+								{this.renderMessageInput(theme, isAndroidTablet)}
+								{this.renderRightButton(theme, showSend, this.submit, this.recordAudioMessage, Message_AudioRecorderEnabled, this.showFileActions)}
+							</>
+						)
+						}
 					</View>
 				</View>
 			</>

@@ -908,6 +908,7 @@ class RoomView extends React.Component {
 				replyCancel={this.onReplyCancel}
 				getCustomEmoji={this.getCustomEmoji}
 				navigation={navigation}
+				roomAnnouncement={room.announcement}
 			/>
 		);
 	};

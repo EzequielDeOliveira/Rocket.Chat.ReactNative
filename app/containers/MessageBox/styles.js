@@ -103,5 +103,43 @@ export default StyleSheet.create({
 	},
 	scrollViewMention: {
 		maxHeight: SCROLLVIEW_MENTION_HEIGHT
+	},
+	fullScreenComposer: {
+		flexDirection: 'column',
+		borderTopWidth: StyleSheet.hairlineWidth,
+		height: '100%',
+		justifyContent: 'flex-end'
+	},
+	fullScreenTextBoxInput: {
+		textAlignVertical: 'top',
+		maxHeight: 500,
+		flexGrow: 1,
+		// paddingVertical: 12, needs to be paddingTop/paddingBottom because of iOS/Android's TextInput differences on rendering
+		paddingBottom: 12,
+		fontSize: 17,
+		letterSpacing: 0,
+		...sharedStyles.textRegular,
+		width: '100%',
+		height: '74%',
+		paddingTop: '10%',
+		paddingLeft: '5%',
+		paddingRight: '5%'
+	},
+	fullScreenTextArea: {
+		flexGrow: 0,
+		flexDirection: 'column',
+		display: 'flex',
+		alignItems: 'flex-end'
+	},
+	fullScreenRightButtons: {
+		display: 'flex',
+		flexDirection: 'row',
+		marginLeft: 'auto'
+	},
+	fullScreenButtons: {
+		display: 'flex',
+		flexDirection: 'row',
+		justifyContent: 'flex-start',
+		width: '100%'
 	}
 });
