@@ -1,30 +1,22 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import {
-	View, Alert, Keyboard, NativeModules
+	Alert, Keyboard, NativeModules, BackHandler
 } from 'react-native';
 import { connect } from 'react-redux';
-import { KeyboardAccessoryView } from 'react-native-keyboard-input';
 import ImagePicker from 'react-native-image-crop-picker';
 import equal from 'deep-equal';
 import DocumentPicker from 'react-native-document-picker';
 import { Q } from '@nozbe/watermelondb';
 
 import { generateTriggerId } from '../../lib/methods/actions';
-import TextInput from '../../presentation/TextInput';
 import { userTyping as userTypingAction } from '../../actions/room';
 import RocketChat from '../../lib/rocketchat';
-import styles from './styles';
 import database from '../../lib/database';
 import { emojis } from '../../emojis';
-import RecordAudio from './RecordAudio';
 import log from '../../utils/log';
 import I18n from '../../i18n';
-import ReplyPreview from './ReplyPreview';
 import debounce from '../../utils/debounce';
-import { themes } from '../../constants/colors';
-import LeftButtons from './LeftButtons';
-import RightButtons from './RightButtons';
 import { isAndroid, isTablet } from '../../utils/deviceInfo';
 import { canUploadFile } from '../../utils/media';
 import EventEmiter from '../../utils/events';
@@ -34,7 +26,6 @@ import {
 	handleCommandSubmit,
 	handleCommandShowUpload
 } from '../../commands';
-import Mentions from './Mentions';
 import MessageboxContext from './Context';
 import {
 	MENTIONS_TRACKING_TYPE_EMOJIS,
@@ -42,10 +33,11 @@ import {
 	MENTIONS_COUNT_TO_DISPLAY,
 	MENTIONS_TRACKING_TYPE_USERS
 } from './constants';
-import CommandsPreview from './CommandsPreview';
 import { getUserSelector } from '../../selectors/login';
 import Navigation from '../../lib/Navigation';
 import { withActionSheet } from '../ActionSheet';
+import FullScreenComposer from './FullScreenComposer';
+import MainComposer from './MainComposer';
 
 const imagePickerConfig = {
 	cropping: true,
@@ -119,7 +111,9 @@ class MessageBox extends Component {
 			trackingType: '',
 			commandPreview: [],
 			showCommandPreview: false,
-			command: {}
+			command: {},
+			isFullScreen: false,
+			recordStartState: false
 		};
 		this.text = '';
 		this.focused = false;
@@ -208,7 +202,8 @@ class MessageBox extends Component {
 		}
 
 		if (isAndroid) {
-			require('./EmojiKeyboard');
+			await import('./EmojiKeyboard');
+			BackHandler.addEventListener('backPress', this.backPress);
 		}
 
 		if (isTablet) {
@@ -251,7 +246,7 @@ class MessageBox extends Component {
 
 	shouldComponentUpdate(nextProps, nextState) {
 		const {
-			showEmojiKeyboard, showSend, recording, mentions, commandPreview
+			showEmojiKeyboard, showSend, recording, mentions, commandPreview, isFullScreen
 		} = this.state;
 
 		const {
@@ -281,10 +276,16 @@ class MessageBox extends Component {
 		if (nextState.recording !== recording) {
 			return true;
 		}
+		if (nextState.isFullScreen !== isFullScreen) {
+			return true;
+		}
 		if (!equal(nextState.mentions, mentions)) {
 			return true;
 		}
 		if (!equal(nextState.commandPreview, commandPreview)) {
+			return true;
+		}
+		if (!equal(nextProps.message, message)) {
 			return true;
 		}
 		if (!equal(nextProps.message, message)) {
@@ -322,6 +323,15 @@ class MessageBox extends Component {
 		if (isTablet) {
 			EventEmiter.removeListener(KEY_COMMAND, this.handleCommands);
 		}
+		if (isAndroid) {
+			BackHandler.removeEventListener('backPress');
+		}
+	}
+
+	backPress = () => {
+		const { isFullScreen } = this.state;
+
+		return isFullScreen;
 	}
 
 	onChangeText = (text) => {
@@ -656,6 +666,11 @@ class MessageBox extends Component {
 
 	showMessageBoxActions = () => {
 		const { showActionSheet } = this.props;
+		const { isFullScreen } = this.state;
+
+		if (isFullScreen) {
+			this.toggleFullScreen();
+		}
 		showActionSheet({ options: this.options });
 	}
 
@@ -665,8 +680,8 @@ class MessageBox extends Component {
 		this.clearInput();
 	}
 
-	openEmoji = async() => {
-		await this.setState({
+	openEmoji = () => {
+		this.setState({
 			showEmojiKeyboard: true
 		});
 	}
@@ -691,6 +706,12 @@ class MessageBox extends Component {
 		}
 	}
 
+	toggleRecordAudioWithState = () => {
+		this.setState(prevState => ({
+			recordStartState: !prevState.recordStartState
+		}));
+	}
+
 	closeEmoji = () => {
 		this.setState({ showEmojiKeyboard: false });
 	}
@@ -700,6 +721,7 @@ class MessageBox extends Component {
 			onSubmit, rid: roomId, tmid, showSend, sharing
 		} = this.props;
 		const message = this.text;
+		const { isFullScreen } = this.state;
 
 		// if sharing, only execute onSubmit prop
 		if (sharing) {
@@ -707,6 +729,9 @@ class MessageBox extends Component {
 			return;
 		}
 
+		if (isFullScreen) {
+			this.toggleFullScreen();
+		}
 		this.clearInput();
 		this.debouncedOnChangeText.stop();
 		this.closeEmoji();
@@ -828,111 +853,57 @@ class MessageBox extends Component {
 		}
 	}
 
-	renderContent = () => {
-		const {
-			recording, showEmojiKeyboard, showSend, mentions, trackingType, commandPreview, showCommandPreview
-		} = this.state;
-		const {
-			editing, message, replying, replyCancel, user, getCustomEmoji, theme, Message_AudioRecorderEnabled, children, isActionsEnabled
-		} = this.props;
-
-		const isAndroidTablet = isTablet && isAndroid ? {
-			multiline: false,
-			onSubmitEditing: this.submit,
-			returnKeyType: 'send'
-		} : {};
-
-		const recordAudio = showSend || !Message_AudioRecorderEnabled ? null : (
-			<RecordAudio
-				theme={theme}
-				recordingCallback={this.recordingCallback}
-				onFinish={this.finishAudioMessage}
-			/>
-		);
-
-		const commandsPreviewAndMentions = !recording ? (
-			<>
-				<CommandsPreview commandPreview={commandPreview} showCommandPreview={showCommandPreview} />
-				<Mentions mentions={mentions} trackingType={trackingType} theme={theme} />
-			</>
-		) : null;
-
-		const replyPreview = !recording ? (
-			<ReplyPreview
-				message={message}
-				close={replyCancel}
-				username={user.username}
-				replying={replying}
-				getCustomEmoji={getCustomEmoji}
-				theme={theme}
-			/>
-		) : null;
-
-		const textInputAndButtons = !recording ? (
-			<>
-				<LeftButtons
-					theme={theme}
-					showEmojiKeyboard={showEmojiKeyboard}
-					editing={editing}
-					showMessageBoxActions={this.showMessageBoxActions}
-					editCancel={this.editCancel}
-					openEmoji={this.openEmoji}
-					closeEmoji={this.closeEmoji}
-					isActionsEnabled={isActionsEnabled}
-				/>
-				<TextInput
-					ref={component => this.component = component}
-					style={styles.textBoxInput}
-					returnKeyType='default'
-					keyboardType='twitter'
-					blurOnSubmit={false}
-					placeholder={I18n.t('New_Message')}
-					onChangeText={this.onChangeText}
-					underlineColorAndroid='transparent'
-					defaultValue=''
-					multiline
-					testID='messagebox-input'
-					theme={theme}
-					{...isAndroidTablet}
-				/>
-				<RightButtons
-					theme={theme}
-					showSend={showSend}
-					submit={this.submit}
-					showMessageBoxActions={this.showMessageBoxActions}
-					isActionsEnabled={isActionsEnabled}
-				/>
-			</>
-		) : null;
-
-		return (
-			<>
-				{commandsPreviewAndMentions}
-				<View style={[styles.composer, { borderTopColor: themes[theme].borderColor }]}>
-					{replyPreview}
-					<View
-						style={[
-							styles.textArea,
-							{ backgroundColor: themes[theme].messageboxBackground },
-							!recording && editing && { backgroundColor: themes[theme].chatComponentBackground }
-						]}
-						testID='messagebox'
-					>
-						{textInputAndButtons}
-						{recordAudio}
-					</View>
-				</View>
-				{children}
-			</>
-		);
+	toggleFullScreen = () => {
+		this.setState(prevState => ({
+			isFullScreen: !prevState.isFullScreen
+		}));
 	}
 
 	render() {
 		console.count(`${ this.constructor.name }.render calls`);
-		const { showEmojiKeyboard } = this.state;
 		const {
-			user, baseUrl, theme, iOSScrollBehavior
+			showEmojiKeyboard, commandPreview, isFullScreen, mentions, showCommandPreview, trackingType, showSend, recording, recordStartState
+		} = this.state;
+		const {
+			user, baseUrl, theme, iOSScrollBehavior, editing, getCustomEmoji, message, Message_AudioRecorderEnabled, replyCancel, replying, children, isActionsEnabled
 		} = this.props;
+		const commonProps = {
+			commandPreview,
+			editing,
+			getCustomEmoji,
+			iOSScrollBehavior,
+			isActionsEnabled,
+			isFullScreen,
+			mentions,
+			message,
+			Message_AudioRecorderEnabled,
+			recording,
+			replyCancel,
+			replying,
+			showCommandPreview,
+			showEmojiKeyboard,
+			showSend,
+			theme,
+			trackingType,
+			user,
+			text: this.text,
+			ref: {
+				component: component => this.component = component,
+				tracking: tracking => this.tracking = tracking
+			},
+			closeEmoji: this.closeEmoji,
+			toggleFullScreen: this.toggleFullScreen,
+			editCancel: this.editCancel,
+			onChangeText: this.onChangeText,
+			onKeyboardResigned: this.onKeyboardResigned,
+			onEmojiSelected: this.onEmojiSelected,
+			openEmoji: this.openEmoji,
+			recordingCallback: this.recordingCallback,
+			showMessageBoxActions: this.showMessageBoxActions,
+			submit: this.submit,
+			toggleRecordAudioWithState: this.toggleRecordAudioWithState
+		};
+
 		return (
 			<MessageboxContext.Provider
 				value={{
@@ -942,20 +913,22 @@ class MessageBox extends Component {
 					onPressCommandPreview: this.onPressCommandPreview
 				}}
 			>
-				<KeyboardAccessoryView
-					ref={ref => this.tracking = ref}
-					renderContent={this.renderContent}
-					kbInputRef={this.component}
-					kbComponent={showEmojiKeyboard ? 'EmojiKeyboard' : null}
-					onKeyboardResigned={this.onKeyboardResigned}
-					onItemSelected={this.onEmojiSelected}
-					trackInteractive
-					// revealKeyboardInteractive
-					requiresSameParentToManageScrollView
-					addBottomView
-					bottomViewColor={themes[theme].messageboxBackground}
-					iOSScrollBehavior={iOSScrollBehavior}
-				/>
+				{isFullScreen
+					? (
+						<FullScreenComposer
+							{...commonProps}
+						/>
+					)
+					: (
+						<MainComposer
+							{...commonProps}
+							finishAudioMessage={this.finishAudioMessage}
+							recordStartState={recordStartState}
+						>
+							{children}
+						</MainComposer>
+					)
+				}
 			</MessageboxContext.Provider>
 		);
 	}

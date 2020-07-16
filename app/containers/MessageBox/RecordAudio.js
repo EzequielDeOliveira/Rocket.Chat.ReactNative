@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { View, Text } from 'react-native';
 import { Audio } from 'expo-av';
-import { BorderlessButton } from 'react-native-gesture-handler';
+import Touchable from 'react-native-platform-touchable';
 import { getInfoAsync } from 'expo-file-system';
 import { deactivateKeepAwake, activateKeepAwake } from 'expo-keep-awake';
 
@@ -17,16 +17,16 @@ const RECORDING_SETTINGS = {
 		extension: RECORDING_EXTENSION,
 		outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_AAC_ADTS,
 		audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_AAC,
-		sampleRate: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY.android.sampleRate,
-		numberOfChannels: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY.android.numberOfChannels,
-		bitRate: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY.android.bitRate
+		sampleRate: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY?.android.sampleRate,
+		numberOfChannels: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY?.android.numberOfChannels,
+		bitRate: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY?.android.bitRate
 	},
 	ios: {
 		extension: RECORDING_EXTENSION,
 		audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_MIN,
-		sampleRate: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY.ios.sampleRate,
-		numberOfChannels: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY.ios.numberOfChannels,
-		bitRate: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY.ios.bitRate,
+		sampleRate: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY?.ios.sampleRate,
+		numberOfChannels: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY?.ios.numberOfChannels,
+		bitRate: Audio.RECORDING_OPTIONS_PRESET_LOW_QUALITY?.ios.bitRate,
 		outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_MPEG4AAC
 	}
 };
@@ -52,7 +52,10 @@ export default class RecordAudio extends React.PureComponent {
 	static propTypes = {
 		theme: PropTypes.string,
 		recordingCallback: PropTypes.func,
-		onFinish: PropTypes.func
+		onFinish: PropTypes.func,
+		recordStartState: PropTypes.bool,
+		onPress: PropTypes.func,
+		toggleRecordAudioWithState: PropTypes.func
 	}
 
 	constructor(props) {
@@ -62,6 +65,15 @@ export default class RecordAudio extends React.PureComponent {
 			isRecording: false,
 			recordingDurationMillis: 0
 		};
+	}
+
+	componentDidMount() {
+		const { recordStartState, toggleRecordAudioWithState } = this.props;
+
+		if (recordStartState) {
+			this.startRecordingAudio();
+			toggleRecordAudioWithState();
+		}
 	}
 
 	componentDidUpdate() {
@@ -170,27 +182,27 @@ export default class RecordAudio extends React.PureComponent {
 	};
 
 	render() {
-		const { theme } = this.props;
+		const { theme, onPress } = this.props;
 		const { isRecording } = this.state;
 
 		if (!isRecording) {
 			return (
-				<BorderlessButton
-					onPress={this.startRecordingAudio}
+				<Touchable
+					onPress={onPress || this.startRecordingAudio}
 					style={styles.actionButton}
 					testID='messagebox-send-audio'
 					accessibilityLabel={I18n.t('Send_audio_message')}
 					accessibilityTraits='button'
 				>
 					<CustomIcon name='mic' size={23} color={themes[theme].tintColor} />
-				</BorderlessButton>
+				</Touchable>
 			);
 		}
 
 		return (
 			<View style={styles.recordingContent}>
 				<View style={styles.textArea}>
-					<BorderlessButton
+					<Touchable
 						onPress={this.cancelRecordingAudio}
 						accessibilityLabel={I18n.t('Cancel_recording')}
 						accessibilityTraits='button'
@@ -201,14 +213,14 @@ export default class RecordAudio extends React.PureComponent {
 							color={themes[theme].dangerColor}
 							name='Cross'
 						/>
-					</BorderlessButton>
+					</Touchable>
 					<Text
 						style={[styles.recordingCancelText, { color: themes[theme].titleText }]}
 					>
 						{this.duration}
 					</Text>
 				</View>
-				<BorderlessButton
+				<Touchable
 					onPress={this.finishRecordingAudio}
 					accessibilityLabel={I18n.t('Finish_recording')}
 					accessibilityTraits='button'
@@ -219,7 +231,7 @@ export default class RecordAudio extends React.PureComponent {
 						color={themes[theme].successColor}
 						name='check'
 					/>
-				</BorderlessButton>
+				</Touchable>
 			</View>
 		);
 	}
