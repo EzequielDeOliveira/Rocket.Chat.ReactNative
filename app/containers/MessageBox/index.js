@@ -859,6 +859,24 @@ class MessageBox extends Component {
 		}));
 	}
 
+	insertChar = (char) => {
+		const { text } = this;
+		let newText = '';
+
+		// if messagebox has an active cursor
+		if (this.component?.lastNativeSelection) {
+			const { start, end } = this.component.lastNativeSelection;
+			const cursor = Math.max(start, end);
+			newText = `${ text.substr(0, cursor) }${ char }${ text.substr(cursor) }`;
+		} else {
+			// if messagebox doesn't have a cursor, just append selected char
+			newText = `${ text }${ char }`;
+		}
+		this.identifyMentionKeyword('', MENTIONS_TRACKING_TYPE_COMMANDS);
+		this.setInput(newText);
+		this.setShowSend(true);
+	}
+
 	render() {
 		console.count(`${ this.constructor.name }.render calls`);
 		const {
@@ -901,7 +919,8 @@ class MessageBox extends Component {
 			recordingCallback: this.recordingCallback,
 			showMessageBoxActions: this.showMessageBoxActions,
 			submit: this.submit,
-			toggleRecordAudioWithState: this.toggleRecordAudioWithState
+			toggleRecordAudioWithState: this.toggleRecordAudioWithState,
+			insertChar: this.insertChar
 		};
 
 		return (

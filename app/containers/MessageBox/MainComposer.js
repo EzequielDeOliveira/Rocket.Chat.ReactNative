@@ -1,8 +1,9 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { View } from 'react-native';
+import { View, Text } from 'react-native';
 import { KeyboardAccessoryView } from 'react-native-keyboard-input';
 import equal from 'deep-equal';
+import Touchable from 'react-native-platform-touchable';
 
 import TextInput from '../../presentation/TextInput';
 import styles from './styles';
@@ -55,7 +56,8 @@ class MainComposer extends Component {
 			username: PropTypes.string,
 			token: PropTypes.string
 		}),
-		innerRef: PropTypes.object
+		innerRef: PropTypes.object,
+		insertChar: PropTypes.func
 	};
 
 	shouldComponentUpdate(nextProps) {
@@ -135,7 +137,8 @@ class MainComposer extends Component {
 			recording,
 			children,
 			toggleFullScreen,
-			innerRef
+			innerRef,
+			insertChar
 		} = this.props;
 		const { component } = innerRef;
 		const isAndroidTablet = isTablet && isAndroid ? {
@@ -155,6 +158,8 @@ class MainComposer extends Component {
 				onFinish={finishAudioMessage}
 				recordStartState={recordStartState}
 				toggleRecordAudioWithState={toggleRecordAudioWithState}
+				//This audio is blocked in this version just for presentation
+				onPress={() => {}}
 			/>
 		);
 
@@ -178,39 +183,63 @@ class MainComposer extends Component {
 
 		const textInputAndButtons = !recording ? (
 			<>
-				<LeftButtons
-					theme={theme}
-					showEmojiKeyboard={showEmojiKeyboard}
-					editing={editing}
-					showMessageBoxActions={showMessageBoxActions}
-					editCancel={editCancel}
-					openEmoji={openEmoji}
-					closeEmoji={closeEmoji}
-					isActionsEnabled={isActionsEnabled}
-				/>
-				<TextInput
-					ref={component}
-					style={styles.textBoxInput}
-					returnKeyType='default'
-					keyboardType='twitter'
-					blurOnSubmit={false}
-					placeholder={I18n.t('New_Message')}
-					onChangeText={onChangeText}
-					underlineColorAndroid='transparent'
-					defaultValue={text}
-					multiline
-					testID='messagebox-input'
-					theme={theme}
-					{...isAndroidTablet}
-				/>
-				{openFullScreen}
-				<RightButtons
-					theme={theme}
-					showSend={showSend}
-					submit={submit}
-					showMessageBoxActions={showMessageBoxActions}
-					isActionsEnabled={isActionsEnabled}
-				/>
+				<View style={{flexDirection: 'row' }}>
+					<TextInput
+						ref={component}
+						style={styles.textBoxInput}
+						returnKeyType='default'
+						keyboardType='twitter'
+						blurOnSubmit={false}
+						placeholder={I18n.t('New_Message')}
+						onChangeText={onChangeText}
+						underlineColorAndroid='transparent'
+						defaultValue={text}
+						multiline
+						testID='messagebox-input'
+						theme={theme}
+						{...isAndroidTablet}
+					/>
+					{openFullScreen}
+				</View>
+				<View style={{flexDirection: 'row', width: '100%', justifyContent: 'space-between' }}>
+					<View style={{ flexDirection: 'row' }}>
+						<Touchable onPress={() => insertChar('/')} style={{ alignItems: 'center', justifyContent: 'center', width: 60, height: 56 }}>
+							<Text style={{ fontSize: 25, color: themes[theme].tintColor }}>
+								/
+						</Text>
+						</Touchable>
+						<Touchable onPress={() => insertChar('@')} style={{ alignItems: 'center', justifyContent: 'center', width: 60, height: 56 }}>
+							<Text style={{ fontSize: 25, color: themes[theme].tintColor }}>
+								@
+						</Text>
+						</Touchable>
+						<Touchable onPress={() => insertChar('#')} style={{ alignItems: 'center', justifyContent: 'center', width: 60, height: 56 }}>
+							<Text style={{ fontSize: 25, color: themes[theme].tintColor }}>
+								#
+						</Text>
+						</Touchable>
+					</View>
+					<View style={{ flexDirection: 'row' }}>
+						<LeftButtons
+							theme={theme}
+							showEmojiKeyboard={showEmojiKeyboard}
+							editing={editing}
+							showMessageBoxActions={showMessageBoxActions}
+							editCancel={editCancel}
+							openEmoji={openEmoji}
+							closeEmoji={closeEmoji}
+							isActionsEnabled={isActionsEnabled}
+						/>
+						<RightButtons
+							theme={theme}
+							showSend={showSend}
+							submit={submit}
+							showMessageBoxActions={showMessageBoxActions}
+							isActionsEnabled={isActionsEnabled}
+						/>
+						{recordAudio}
+					</View>
+				</View>
 			</>
 		) : null;
 
@@ -228,7 +257,6 @@ class MainComposer extends Component {
 						testID='messagebox'
 					>
 						{textInputAndButtons}
-						{recordAudio}
 					</View>
 				</View>
 				{children}

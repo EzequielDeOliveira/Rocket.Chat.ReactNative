@@ -1,11 +1,12 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import {
-	View, TouchableOpacity
+	View, TouchableOpacity, Text
 } from 'react-native';
 import { KeyboardAccessoryView, KeyboardUtils } from 'react-native-keyboard-input';
 import Modal from 'react-native-modal';
 import equal from 'deep-equal';
+import Touchable from 'react-native-platform-touchable';
 
 import TextInput from '../../presentation/TextInput';
 import styles from './styles';
@@ -59,7 +60,8 @@ class FullScreenComposer extends Component {
 		}),
 		innerRef: PropTypes.object,
 		autoFocus: PropTypes.bool,
-		backdropOpacity: PropTypes.number
+		backdropOpacity: PropTypes.number,
+		insertChar: PropTypes.func
 	};
 
 	static defaultProps = {
@@ -130,7 +132,7 @@ class FullScreenComposer extends Component {
 
 	startRecordingAudio = () => {
 		const { toggleRecordAudioWithState } = this.props;
-		toggleRecordAudioWithState();
+		//toggleRecordAudioWithState();
 		this.closeModal();
 	}
 
@@ -157,7 +159,8 @@ class FullScreenComposer extends Component {
 			replyCancel,
 			user,
 			replying,
-			getCustomEmoji
+			getCustomEmoji,
+			insertChar
 		} = this.props;
 		const buttonsViewStyle = {
 			...styles.bottomBarButtons,
@@ -186,18 +189,35 @@ class FullScreenComposer extends Component {
 						getCustomEmoji={getCustomEmoji}
 						theme={theme}
 					/>
-					<View style={buttonsViewStyle}>
-						<LeftButtons
-							theme={theme}
-							showEmojiKeyboard={showEmojiKeyboard}
-							editing={editing}
-							isActionsEnabled
-							showMessageBoxActions={showMessageBoxActions}
-							editCancel={editCancel}
-							openEmoji={openEmoji}
-							closeEmoji={closeEmoji}
-						/>
-						<View style={styles.bottomBarRightButtons}>
+					<View style={{ flexDirection: 'row', width: '100%', justifyContent: 'space-between' }}>
+						<View style={{ flexDirection: 'row' }}>
+							<Touchable onPress={() => insertChar('/')} style={{ alignItems: 'center', justifyContent: 'center', width: 60, height: 56 }}>
+								<Text style={{ fontSize: 25, color: themes[theme].tintColor }}>
+									/
+						</Text>
+							</Touchable>
+							<Touchable onPress={() => insertChar('@')} style={{ alignItems: 'center', justifyContent: 'center', width: 60, height: 56 }}>
+								<Text style={{ fontSize: 25, color: themes[theme].tintColor }}>
+									@
+						</Text>
+							</Touchable>
+							<Touchable onPress={() => insertChar('#')} style={{ alignItems: 'center', justifyContent: 'center', width: 60, height: 56 }}>
+								<Text style={{ fontSize: 25, color: themes[theme].tintColor }}>
+									#
+						</Text>
+							</Touchable>
+						</View>
+						<View style={{ flexDirection: 'row' }}>
+							<LeftButtons
+								theme={theme}
+								showEmojiKeyboard={showEmojiKeyboard}
+								editing={editing}
+								isActionsEnabled
+								showMessageBoxActions={showMessageBoxActions}
+								editCancel={editCancel}
+								openEmoji={openEmoji}
+								closeEmoji={closeEmoji}
+							/>
 							<RightButtons
 								theme={theme}
 								showSend={showSend}

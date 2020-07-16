@@ -18,7 +18,7 @@ export default StyleSheet.create({
 		borderTopWidth: 1
 	},
 	textArea: {
-		flexDirection: 'row',
+		flexDirection: 'column',
 		alignItems: 'center',
 		flexGrow: 0
 	},
@@ -30,7 +30,7 @@ export default StyleSheet.create({
 		// paddingVertical: 12, needs to be paddingTop/paddingBottom because of iOS/Android's TextInput differences on rendering
 		paddingTop: 12,
 		paddingBottom: 12,
-		paddingLeft: 0,
+		paddingLeft: 20,
 		paddingRight: 0,
 		fontSize: 17,
 		letterSpacing: 0,
